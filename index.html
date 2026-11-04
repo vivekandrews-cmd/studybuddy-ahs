@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#c8102e">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<title>StudyBuddy AHS</title>
+<style>
+:root{--red:#c8102e;--bg:#fafafa;--card:#fff;--ink:#1d1d1f;--mute:#6b6b70;--line:#e4e4e7;--me:#c8102e;--bot:#f0f0f2}
+@media(prefers-color-scheme:dark){:root{--bg:#141416;--card:#1e1e21;--ink:#f2f2f3;--mute:#9a9aa0;--line:#2e2e33;--bot:#27272b}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0}
+body{font:16px/1.5 system-ui,-apple-system,Roboto,sans-serif;background:var(--bg);color:var(--ink);display:flex;flex-direction:column}
+header{background:var(--red);color:#fff;padding:12px 16px;padding-top:max(12px,env(safe-area-inset-top));display:flex;align-items:center;gap:8px}
+header h1{font-size:18px;margin:0;flex:1}
+header button{background:rgba(255,255,255,.18);color:#fff;border:0;border-radius:10px;padding:8px 12px;font-size:14px}
+main{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
+.msg{max-width:88%;padding:10px 14px;border-radius:18px;white-space:pre-wrap;word-wrap:break-word}
+.msg.user{align-self:flex-end;background:var(--me);color:#fff;border-bottom-right-radius:4px}
+.msg.bot{align-self:flex-start;background:var(--bot);border-bottom-left-radius:4px}
+.msg.err{align-self:center;background:#fde8ea;color:#8a1020;font-size:14px}
+.msg code{background:rgba(127,127,127,.2);padding:1px 5px;border-radius:5px;font-family:ui-monospace,monospace;font-size:14px}
+.msg pre{background:rgba(127,127,127,.15);padding:10px;border-radius:10px;overflow-x:auto;white-space:pre}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:0 16px 8px}
+.chips button{flex:none;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:8px 14px;font-size:14px}
+form.bar{display:flex;gap:8px;padding:8px 12px;padding-bottom:max(8px,env(safe-area-inset-bottom));background:var(--card);border-top:1px solid var(--line)}
+form.bar textarea{flex:1;resize:none;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:20px;padding:10px 14px;font:inherit;max-height:120px}
+form.bar button{border:0;background:var(--red);color:#fff;border-radius:50%;width:44px;height:44px;font-size:20px;align-self:flex-end}
+form.bar button:disabled{opacity:.5}
+.sheet{position:fixed;inset:0;background:var(--bg);overflow-y:auto;padding:16px;padding-top:max(16px,env(safe-area-inset-top));display:none;z-index:10}
+.sheet.open{display:block}
+.sheet h2{margin:8px 0 4px}
+.sheet p.hint{color:var(--mute);font-size:14px;margin:0 0 12px}
+label{display:block;font-weight:600;margin:16px 0 6px}
+select,input[type=text],input[type=password],textarea.big{width:100%;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:12px;padding:12px;font:inherit}
+textarea.big{min-height:220px;font-size:14px}
+.opts{display:flex;flex-wrap:wrap;gap:8px}
+.opts label{margin:0;font-weight:400}
+.opts input{display:none}
+.opts span{display:inline-block;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:8px 14px;font-size:14px}
+.opts input:checked+span{background:var(--red);border-color:var(--red);color:#fff}
+.primary{width:100%;margin-top:20px;padding:14px;border:0;border-radius:14px;background:var(--red);color:#fff;font-size:16px;font-weight:600}
+.secondary{width:100%;margin-top:10px;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--card);color:var(--ink);font-size:15px}
+.warn{background:#fff6e0;color:#6b4a00;border-radius:12px;padding:10px 12px;font-size:13px;margin-top:8px}
+@media(prefers-color-scheme:dark){.warn{background:#3a2f12;color:#f3d98b}}
+</style>
+</head>
+<body>
+<header>
+  <h1>📚 StudyBuddy</h1>
+  <button id="btnNew">Neu</button>
+  <button id="btnSettings">Profil</button>
+</header>
+<main id="chat"></main>
+<div class="chips" id="chips"></div>
+<form class="bar" id="form">
+  <textarea id="input" rows="1" placeholder="Frag mich etwas …" autocomplete="off"></textarea>
+  <button id="send" type="submit" aria-label="Senden">➤</button>
+</form>
+
+<!-- Profile / onboarding sheet -->
+<section class="sheet" id="sheet">
+  <h2>Dein Study Buddy</h2>
+  <p class="hint">Ein paar Fragen, damit dein Lernpartner zu dir passt. Alles bleibt auf deinem Handy.</p>
+
+  <label for="grade">Schulstufe</label>
+  <select id="grade">
+    <option>1. Klasse (5. Schulstufe)</option><option>2. Klasse (6. Schulstufe)</option>
+    <option>3. Klasse (7. Schulstufe)</option><option>4. Klasse (8. Schulstufe)</option>
+    <option>5. Klasse (9. Schulstufe)</option><option>6. Klasse (10. Schulstufe)</option>
+    <option>7. Klasse (11. Schulstufe)</option><option>8. Klasse (12. Schulstufe)</option>
+  </select>
+
+  <label for="branch">Schulzweig</label>
+  <select id="branch">
+    <option>Gymnasium</option><option>Realgymnasium</option>
+    <option>Wirtschaftskundliches Realgymnasium</option><option>ORG (Oberstufenrealgymnasium)</option>
+    <option>Sonstiger / Spezialzweig</option>
+  </select>
+
+  <label>Worauf liegt der Fokus?</label>
+  <div class="opts" data-key="focus" data-multi="1">
+    <label><input type="checkbox" value="Hausübungen"><span>Hausübungen</span></label>
+    <label><input type="checkbox" value="Schularbeiten"><span>Schularbeiten</span></label>
+    <label><input type="checkbox" value="Tests und Wiederholungen"><span>Tests</span></label>
+    <label><input type="checkbox" value="Standardisierte Reifeprüfung (SRDP Matura)"><span>Matura</span></label>
+  </div>
+
+  <label>Fächer</label>
+  <div class="opts" data-key="subjects" data-multi="1">
+    <label><input type="checkbox" value="Mathematik"><span>Mathematik</span></label>
+    <label><input type="checkbox" value="Deutsch"><span>Deutsch</span></label>
+    <label><input type="checkbox" value="Englisch"><span>Englisch</span></label>
+    <label><input type="checkbox" value="Französisch"><span>Französisch</span></label>
+    <label><input type="checkbox" value="Latein"><span>Latein</span></label>
+    <label><input type="checkbox" value="Spanisch"><span>Spanisch</span></label>
+    <label><input type="checkbox" value="Biologie"><span>Biologie</span></label>
+    <label><input type="checkbox" value="Physik"><span>Physik</span></label>
+    <label><input type="checkbox" value="Chemie"><span>Chemie</span></label>
+    <label><input type="checkbox" value="Geschichte"><span>Geschichte</span></label>
+    <label><input type="checkbox" value="Geographie und Wirtschaftskunde (GWK)"><span>GWK</span></label>
+    <label><input type="checkbox" value="Psychologie und Philosophie"><span>Psy/Phil</span></label>
+    <label><input type="checkbox" value="Informatik"><span>Informatik</span></label>
+  </div>
+
+  <label>Tonfall</label>
+  <div class="opts" data-key="tone">
+    <label><input type="radio" name="tone" value="unterstützender Mentor"><span>Mentor</span></label>
+    <label><input type="radio" name="tone" value="strenger Prüfungscoach"><span>Prüfungscoach</span></label>
+    <label><input type="radio" name="tone" value="Lernpartner auf Augenhöhe"><span>Lernpartner</span></label>
+    <label><input type="radio" name="tone" value="ermutigender Nachhilfelehrer"><span>Ermutigend</span></label>
+  </div>
+
+  <label>Erklärstil</label>
+  <div class="opts" data-key="depth">
+    <label><input type="radio" name="depth" value="einfache Analogien und Beispiele"><span>Einfach</span></label>
+    <label><input type="radio" name="depth" value="sokratisch: stelle zuerst Leitfragen, gib die Lösung erst nach Versuchen des Schülers"><span>Sokratisch</span></label>
+    <label><input type="radio" name="depth" value="fachlich genau und tiefgehend"><span>Tiefgehend</span></label>
+  </div>
+
+  <label>Format</label>
+  <div class="opts" data-key="format" data-multi="1">
+    <label><input type="checkbox" value="Tabellen zur Zusammenfassung"><span>Tabellen</span></label>
+    <label><input type="checkbox" value="kurze Stichpunkte"><span>Stichpunkte</span></label>
+    <label><input type="checkbox" value="Lernpläne"><span>Lernpläne</span></label>
+    <label><input type="checkbox" value="Mini-Quizzes zwischendurch"><span>Quizzes</span></label>
+    <label><input type="checkbox" value="Karteikarten (Frage/Antwort)"><span>Karteikarten</span></label>
+  </div>
+
+  <label>Antwortsprache</label>
+  <div class="opts" data-key="lang">
+    <label><input type="radio" name="lang" value="Deutsch"><span>Deutsch</span></label>
+    <label><input type="radio" name="lang" value="Englisch"><span>English</span></label>
+    <label><input type="radio" name="lang" value="Deutsch, Fachbegriffe zusätzlich auf Englisch"><span>DE + EN Begriffe</span></label>
+  </div>
+
+  <label for="prompt">Dein Master Prompt (bearbeitbar)</label>
+  <textarea class="big" id="prompt"></textarea>
+  <button class="secondary" id="btnRebuild" type="button">Aus Antworten neu erzeugen</button>
+
+  <label for="apikey">Anthropic API-Schlüssel</label>
+  <input type="password" id="apikey" placeholder="sk-ant-…" autocomplete="off">
+  <div class="warn">Der Schlüssel wird nur auf diesem Gerät gespeichert und direkt an Anthropic gesendet. Für eine App, die du an andere Schüler verteilst, solltest du stattdessen einen eigenen Server dazwischenschalten (siehe README).</div>
+
+  <label for="model">Modell</label>
+  <input type="text" id="model" value="claude-sonnet-4-5">
+
+  <button class="primary" id="btnSave" type="button">Speichern &amp; loslegen</button>
+</section>
+
+<script>
+const $ = s => document.querySelector(s);
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+};
+let profile = store.get("profile", null);
+let settings = store.get("settings", {apikey:"", model:"claude-sonnet-4-5"});
+let history = store.get("history", []);
+let busy = false;
+
+/* ---------- Master prompt ---------- */
+function buildPrompt(p){
+  const list = a => (a && a.length) ? a.join(", ") : "nicht angegeben";
+  return `Du bist mein persönlicher KI-Study-Buddy für die österreichische AHS (Allgemeinbildende Höhere Schule).
+
+Mein Profil:
+- Schulstufe: ${p.grade}
+- Schulzweig: ${p.branch}
+- Fokus: ${list(p.focus)}
+- Fächer: ${list(p.subjects)}
+
+So sollst du mit mir arbeiten:
+- Rolle und Tonfall: ${p.tone || "unterstützender Mentor"}.
+- Erklärstil: ${p.depth || "einfache Analogien und Beispiele"}.
+- Bevorzugte Formate: ${list(p.format)}.
+- Antworte auf: ${p.lang || "Deutsch"}.
+
+Regeln:
+- Orientiere dich am österreichischen AHS-Lehrplan und meiner Schulstufe. Erkläre nichts, was weit über meinem Niveau liegt, ohne es kurz einzuordnen.
+- Mathematik: Rechne Schritt für Schritt vor und erkläre, warum jeder Schritt gemacht wird. Nutze bei Oberstufen-Aufgaben die Denk- und Schreibweise der SRDP-Matura (Handlungsdimensionen, Technologieeinsatz).
+- Deutsch und Fremdsprachen: Gib Feedback zu Aufsätzen nach den Textsorten und Beurteilungskriterien der Matura/Schularbeit (Inhalt, Textstruktur, Stil, Sprachrichtigkeit). Bei Vokabeln: abfragen, nicht nur vorsagen.
+- Frage nach, wenn mir Angaben fehlen (Aufgabenstellung, Thema, Termin der Schularbeit).
+- Gib keine fertigen Lösungen für Hausübungen ab, ohne dass ich den Lösungsweg verstanden habe. Prüfe am Ende kurz mein Verständnis.
+- Sei ehrlich, wenn du dir nicht sicher bist, und sag mir, dass ich es im Schulbuch oder bei meiner Lehrkraft gegenprüfen soll.
+- Halte Antworten kurz genug für ein Handy-Display.`;
+}
+
+/* ---------- Profile UI ---------- */
+function readProfile(){
+  const p = {grade:$("#grade").value, branch:$("#branch").value};
+  document.querySelectorAll(".opts[data-key]").forEach(g=>{
+    const k = g.dataset.key, multi = g.dataset.multi;
+    const checked = [...g.querySelectorAll("input:checked")].map(i=>i.value);
+    p[k] = multi ? checked : (checked[0] || "");
+  });
+  return p;
+}
+function fillProfile(p){
+  if(!p) return;
+  $("#grade").value = p.grade; $("#branch").value = p.branch;
+  document.querySelectorAll(".opts[data-key]").forEach(g=>{
+    const v = p[g.dataset.key];
+    g.querySelectorAll("input").forEach(i=>{ i.checked = Array.isArray(v) ? v.includes(i.value) : v === i.value; });
+  });
+}
+function openSheet(){
+  fillProfile(profile);
+  $("#prompt").value = store.get("prompt", "") || (profile ? buildPrompt(profile) : buildPrompt(readProfile()));
+  $("#apikey").value = settings.apikey || "";
+  $("#model").value = settings.model || "claude-sonnet-4-5";
+  $("#sheet").classList.add("open");
+}
+$("#btnSettings").onclick = openSheet;
+$("#btnRebuild").onclick = () => { $("#prompt").value = buildPrompt(readProfile()); };
+$("#btnSave").onclick = () => {
+  profile = readProfile();
+  store.set("profile", profile);
+  store.set("prompt", $("#prompt").value.trim() || buildPrompt(profile));
+  settings = {apikey: $("#apikey").value.trim(), model: $("#model").value.trim() || "claude-sonnet-4-5"};
+  store.set("settings", settings);
+  $("#sheet").classList.remove("open");
+  renderChips();
+  if(!history.length) greet();
+};
+
+/* ---------- Chat ---------- */
+const chat = $("#chat");
+function esc(s){ return s.replace(/[&<>]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+function md(s){
+  // tiny, safe markdown: code blocks, inline code, bold
+  let t = esc(s);
+  t = t.replace(/```(?:\w+)?\n([\s\S]*?)```/g, (_,c)=>`<pre>${c}</pre>`);
+  t = t.replace(/`([^`\n]+)`/g, "<code>$1</code>");
+  t = t.replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>");
+  return t;
+}
+function addMsg(role, text){
+  const d = document.createElement("div");
+  d.className = "msg " + role;
+  d.innerHTML = role === "user" ? esc(text) : md(text);
+  chat.appendChild(d); chat.scrollTop = chat.scrollHeight;
+  return d;
+}
+function renderHistory(){
+  chat.innerHTML = "";
+  history.forEach(m => addMsg(m.role === "user" ? "user" : "bot", m.content));
+}
+function greet(){
+  addMsg("bot", `Servus! Ich bin dein Study Buddy. Was schauen wir uns heute an?`);
+}
+function renderChips(){
+  const subs = (profile && profile.subjects && profile.subjects.length) ? profile.subjects.slice(0,4) : [];
+  const ideas = subs.map(s => `Erkläre mir ein Thema in ${s}`);
+  ideas.push("Frag mich Vokabeln ab", "Erstelle einen Lernplan für diese Woche", "Gib mir ein kurzes Quiz");
+  $("#chips").innerHTML = "";
+  ideas.forEach(t=>{
+    const b = document.createElement("button"); b.type = "button"; b.textContent = t;
+    b.onclick = () => { $("#input").value = t; $("#input").focus(); };
+    $("#chips").appendChild(b);
+  });
+}
+
+async function send(text){
+  if(busy || !text.trim()) return;
+  if(!settings.apikey){ openSheet(); return; }
+  busy = true; $("#send").disabled = true;
+  history.push({role:"user", content:text}); store.set("history", history.slice(-40));
+  addMsg("user", text);
+  const bubble = addMsg("bot", "…");
+  let full = "";
+  try{
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method:"POST",
+      headers:{
+        "content-type":"application/json",
+        "x-api-key": settings.apikey,
+        "anthropic-version":"2023-06-01",
+        "anthropic-dangerous-direct-browser-access":"true"
+      },
+      body: JSON.stringify({
+        model: settings.model, max_tokens: 1500, stream: true,
+        system: store.get("prompt", "") || buildPrompt(profile || readProfile()),
+        messages: history.slice(-20)
+      })
+    });
+    if(!res.ok){
+      let msg = res.status + "";
+      try{ msg = (await res.json()).error.message; }catch(e){}
+      throw new Error(msg);
+    }
+    const reader = res.body.getReader(), dec = new TextDecoder();
+    let buf = "";
+    while(true){
+      const {done, value} = await reader.read();
+      if(done) break;
+      buf += dec.decode(value, {stream:true});
+      const lines = buf.split("\n"); buf = lines.pop();
+      for(const line of lines){
+        if(!line.startsWith("data:")) continue;
+        try{
+          const ev = JSON.parse(line.slice(5));
+          if(ev.type === "content_block_delta" && ev.delta.text){
+            full += ev.delta.text; bubble.innerHTML = md(full); chat.scrollTop = chat.scrollHeight;
+          }
+        }catch(e){}
+      }
+    }
+    history.push({role:"assistant", content: full || "(keine Antwort)"});
+    store.set("history", history.slice(-40));
+  }catch(e){
+    bubble.remove();
+    history.pop(); // drop the failed user turn
+    store.set("history", history.slice(-40));
+    addMsg("err", "Fehler: " + e.message + (navigator.onLine ? "" : " (du bist offline)"));
+  }
+  busy = false; $("#send").disabled = false;
+}
+
+$("#form").onsubmit = e => { e.preventDefault(); const t = $("#input").value; $("#input").value = ""; autosize(); send(t); };
+$("#input").addEventListener("keydown", e => { if(e.key === "Enter" && !e.shiftKey && window.innerWidth > 700){ e.preventDefault(); $("#form").requestSubmit(); } });
+function autosize(){ const i = $("#input"); i.style.height = "auto"; i.style.height = Math.min(i.scrollHeight, 120) + "px"; }
+$("#input").addEventListener("input", autosize);
+$("#btnNew").onclick = () => { if(busy) return; history = []; store.set("history", history); chat.innerHTML = ""; greet(); };
+
+/* ---------- Boot ---------- */
+if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});
+renderChips();
+if(!profile){ openSheet(); }
+else if(history.length){ renderHistory(); }
+else greet();
+</script>
+</body>
+</html>
